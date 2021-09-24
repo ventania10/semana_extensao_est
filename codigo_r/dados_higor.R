@@ -90,7 +90,9 @@ Dados_Mun <- Dados_Mun %>% select(c('uf','ibge','nome_mun','numerador','denomina
                        'tempo','denominador_utilizado','cod_reg_saude','reg_saude',
                        'ano','quadrimestre'))
 
+### Retirando 2021 ####
 
+Dados_Mun <- Dados_Mun %>% filter(ano!='2021')
 
 save(Dados_Mun, file='D:/Users/Mathews/Documents/Git/semana_extensao_est/dados muncipio/Dados_Mun.rdata')
 
