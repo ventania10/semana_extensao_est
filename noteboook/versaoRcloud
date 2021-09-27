@@ -1,0 +1,256 @@
+---
+title: "DASHGEN"
+author: "Análise dos Indicadores - Nível Municipal"
+date: "21/09/2021"
+output: html_document
+runtime: shiny
+---
+
+* * *
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if (!require(pacman)) {
+  install.packages("pacman")
+  library(pacman)
+}
+pacman::p_load(readxl, dplyr, ggplot2, stringr, curl, sf, cowplot,
+       DT, RCurl, repmis,  rgdal, utils, geobr, shiny)
+```
+
+### Produção e análise matemática, estatística e computacional de indicadores de Atenção Primária à Saúde no Brasil 
+
+```{r include=FALSE}
+source_data('https://github.com/giapsunb/semana_extensao_est/blob/main/dados%20muncipio/Dados_Mun.rdata?raw=true') # local dos dados
+```
+
+### Selecione o número relacionado ao Indicador de Interesse
+
+1. [proporção de gestantes com pelo menos 6 (seis) consultas pré-natal realizadas, sendo a 1ª até a 20ª semana de gestação (GEPRE);](https://drive.google.com/file/d/1EUnzI4QD7RGkCNCFN0vHayjM5GzvINrw/view?usp=sharing)
+2. [proporção de gestantes com realização de exames para sífilis e HIV (GEDST );](https://drive.google.com/file/d/1YCz5n7Ru0Y6Tf-MwN4cRik4za2xX9U6g/view?usp=sharing)
+3. [proporção de gestantes que passaram por atendimento odontológico (GEODO);](https://drive.google.com/file/d/1gABZ34w2oA57lJ4AB7dNW1ou_Bz5VEIZ/view?usp=sharing)
+4. [cobertura de exame citopatológico (CITO);](https://drive.google.com/file/d/1IGGXKfkJEFjR30440NU2ArcN4zHcd2ep/view?usp=sharing)
+5. [cobertura vacinal de poliomielite inativada e de pentavalente (POLI);](https://drive.google.com/file/d/1RukreNZvzZeN0OzuK2gzhDprgIPmjjZB/view?usp=sharing)
+6. [percentual de pessoas hipertensas com pressão arterial aferida em cada semestre (HIPER);](https://drive.google.com/file/d/1NQDNzFAp8iMzgpEHZc9oZq6dFNru1gha/view?usp=sharing) 
+7. [percentual de diabéticos com solicitação de hemoglobina glicada (DIA).](https://drive.google.com/file/d/1xe5LRXgYRsBuhfWbYbzZoYy0BJGtM4kK/view?usp=sharing)
+
+
+## SELEÇÃO DE INFORMAÇÕES PARA AS ANÁLISES
+### Procure na caixa de pesquisa o código IBGE do município de interesse utilizando o nome.
+
+
+
+```{r echo=FALSE}
+datatable(unique(Dados_Mun[,c('ibge','uf' ,'nome_mun')]),colnames=c('Código IBGE','UF','Município'), options = list(lengthMenu = c(5, 10,15), pageLength = 5, names))
+```
+
+
+```{r echo=FALSE}
+inputPanel(
+    selectInput("bw_adjust", label = "Indicador(es):",
+              choices = 1:7,multiple = T,selected = 1),
+    selectInput("bw_ibge",label = "Municipio:",
+                choices = unique(Dados_Mun$ibge), selected =320390 ))
+
+renderPlot({
+  
+Teste <- Dados_Mun %>% filter(indicador %in% unique(Dados_Mun$indicador)[as.numeric(input$bw_adjust)], ibge==as.numeric(input$bw_ibge))
+nome_mun_selecionado <- unique(Teste$Nome_Mun)
+
+
+G1 <- Teste %>% 
+  ggplot(aes(x=tempo, y=indicador_calculado, group=indicador)) +
+  geom_line(aes(linetype=indicador, color=indicador, size=indicador))+
+  geom_point(size=1)+
+  scale_linetype_manual(values=c("solid", "dotted",'dashed'))+
+  scale_color_manual(values=c('black','#E69F00','darkred'))+
+  scale_size_manual(values=c(0.9, 0.8,0.6))+
+  coord_cartesian(ylim = c(0, 1), expand = FALSE, clip = "off",xlim=c(0.9,9.1)) +
+  scale_y_continuous(breaks = seq(0,1.0,.20))+
+  ggtitle(paste0("Série temporal do indicador utilizado para municipio ",nome_mun_selecionado))+
+  theme_bw() +
+  labs(y="Valor do Indicador", x='Ano e Quadrimestre')+
+  theme(plot.margin = unit(c(1, 1, 4, 1), "lines"),
+        axis.title.y = element_text(size=8),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(angle=0, size=8),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.title = element_text(size=7),
+        legend.text = element_text(size=6),
+        plot.title = element_text(hjust = 0.5, size=10))
+
+
+G2 <- Teste %>% 
+  ggplot(aes(x=tempo, y=numerador, group=indicador)) +
+  geom_line(aes(linetype=indicador, color=indicador, size=indicador))+
+  geom_point(size=1)+
+  scale_linetype_manual(values=c("solid", "dotted",'dashed'))+
+  scale_color_manual(values=c('black','#E69F00','darkred'))+
+  scale_size_manual(values=c(0.9, 0.8,0.6))+
+  
+  ggtitle(paste0("Série temporal do numerador utilizado para municipio ",nome_mun_selecionado))+
+  theme_bw() +
+  labs(y="Valor do Numerador", x='Ano e Quadrimestre')+
+  theme(plot.margin = unit(c(1, 1, 4, 1), "lines"),
+        axis.title.y = element_text(size=8),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(angle=0, size=7),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.title = element_text(size=7),
+        legend.text = element_text(size=6),
+        plot.title = element_text(hjust = 0.5, size=10))
+
+
+G3 <- Teste %>% 
+  ggplot(aes(x=tempo, y=denominador_utilizado, group=indicador)) +
+  geom_line(aes(linetype=indicador, color=indicador, size=indicador))+
+  geom_point(size=1)+
+  scale_linetype_manual(values=c("solid", "dotted",'dashed'))+
+  scale_color_manual(values=c('black','#E69F00','darkred'))+
+  scale_size_manual(values=c(0.9, 0.8,0.6))+
+
+  ggtitle(paste0("Série temporal do denominador utilizado para municipio ",nome_mun_selecionado))+
+  theme_bw() +
+  labs(y="Valor do Denominador", x='Ano e Quadrimestre')+
+  theme(plot.margin = unit(c(1, 1, 4, 1), "lines"),
+        axis.title.y = element_text(size=8),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(angle=0,size=7),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.title = element_text(size=7),
+        legend.text = element_text(size=6),
+        plot.title = element_text(hjust = 0.5,size=10))
+
+plot_grid(G2,G3,G1, nrow = 3)
+  
+  
+})
+```
+
+
+```{r echo=FALSE}
+inputPanel(
+    selectInput("bw_adjustt", label = "Indicador(es):",
+              choices = 1:7,selected = 1),
+    selectInput("bw_ibget",label = "Municipio:",
+                choices = unique(Dados_Mun$ibge), selected = 320390 ))
+
+renderPlot({
+  
+Dados_plot_mun <- Dados_Mun %>% filter(indicador== unique(Dados_Mun$indicador)[as.numeric(input$bw_adjustt)], ibge==as.numeric(input$bw_ibget))
+
+n_estados = length(unique(Dados_plot_mun$uf))
+
+sequencia <- rep(c(0.6,0.68,0.81,0.92,0.99,1.1,1.21,1.30,1.43),n_estados)+
+ rep(c(0:(n_estados-1)),each=9)
+sequencia2 <- rep(seq(0.66,1.4,0.3),n_estados)+
+ rep(c(0:(n_estados-1)),each=3)
+
+Dados_plot_mun <- Dados_plot_mun %>% arrange(uf,desc(tempo))
+
+Dados_plot_mun %>% ggplot(aes(x=nome_mun,y=indicador_calculado,fill=tempo))+
+ geom_col(position=position_dodge(width=0.9),width=0.8)+
+ 
+ geom_text(label=Dados_plot_mun$indicador_calculado,
+ position = position_dodge(width=0.9),
+ size=4, hjust = +0.45, vjust=-.35)+
+ labs(y= paste0("Indicador ",unique(Dados_Mun$indicador)[as.numeric(input$bw_adjustt)], x='Município'))+
+ 
+ scale_fill_manual(values=rep(c('#20c00c','#0e8b16','#095d0e'),each=3))+
+ 
+ #annotate(geom = "text", x =sequencia , y = -.02, label = rep(Quadrimestres,
+ #3*n_estados), size = 3) +
+ 
+ #annotate(geom = "text", x = sequencia2 , y = -.05, label = rep(Anos,
+ #n_estados), size = 4) +
+ 
+ coord_cartesian(ylim = c(-.075, max(Dados_plot_mun$indicador_calculado)+ .05), expand = FALSE, clip = "off",
+ xlim=c(0.5,max(sequencia)+0.05))+
+ scale_y_continuous(breaks = seq(0,max(Dados_plot_mun$indicador_calculado),0.1))+
+ theme_bw()+
+ theme(plot.margin = unit(c(1, 1, 4, 1), "lines"),
+ panel.border = element_blank(),
+ axis.line.x = element_line(colour='black'),
+ axis.line.y = element_line(colour='black'),
+ axis.text.x = element_text(size=15),
+ axis.title = element_text(size=15),
+ legend.text = element_text(size=6),
+ legend.key.size = unit(0.5, 'cm'),
+ legend.title = element_text(size=7),
+ legend.position = "none")
+
+})
+
+```
+
+
+## Mapa da Região de Saúde do Município Selecionado
+
+```{r echo=FALSE}
+inputPanel(
+    selectInput("bw_tempoi",label = "Municipio:",
+                choices = unique(Dados_Mun$tempo)),
+    selectInput("bw_tempof",label = "Municipio:",
+                choices = unique(Dados_Mun$tempo)))
+renderPlot({
+states <- read_municipality(year=2019)
+
+states$ibge<- as.numeric(str_sub(states$code_muni,1,6))
+
+no_axis <- theme(axis.title=element_blank(),
+axis.text=element_blank(),
+axis.ticks=element_blank())
+
+uf_selecionada <- Dados_Mun$uf[Dados_Mun$ibge==as.numeric(input$bw_ibget)] %>% unique()
+
+reg_saude_sel <- Dados_Mun$cod_reg_saude[Dados_Mun$ibge==as.numeric(input$bw_ibget)] %>% unique()
+
+states <- states %>% filter(abbrev_state==uf_selecionada)
+
+tempo_inicial <- as.character(input$bw_tempoi)
+
+tempo_final <- as.character(input$bw_tempof)
+
+Dados_mapa <- Dados_Mun %>% filter(tempo %in% c(tempo_inicial,tempo_final), indicador==unique(Dados_Mun$indicador)[as.numeric(input$bw_adjustt)], uf==uf_selecionada) %>% 
+ select(reg_saude, cod_reg_saude,indicador_calculado, ibge, uf, nome_mun,tempo, indicador)
+
+
+states <- left_join(states, Dados_mapa)
+
+
+nc3_points <- st_point_on_surface(states)
+
+nc3_points <- nc3_points %>% filter(cod_reg_saude == reg_saude_sel)
+
+nc3_coords <- as.data.frame(st_coordinates(nc3_points))
+
+nc3_coords$NAME <- states$name_muni[states$cod_reg_saude==reg_saude_sel]
+
+states <- states %>% filter(cod_reg_saude == reg_saude_sel)
+ggplot() +
+geom_sf(data=states, aes(fill =indicador_calculado), size = 0.7, show.legend = TRUE) +
+theme_minimal()+
+# ggtitle(paste0(" Região de Saúde: ",states$reg_saude[states$cod_reg_saude==reg_saude_sel][1],
+# '\n Muncípio: ',nome_mun_selecionado ,' \n UF: ',uf_selecionada))+
+
+scale_fill_gradient(high = "blue", low= "gray", na.value = "black",
+ name=paste("Indicador",unique(Dados_Mun$indicador)[as.numeric(input$bw_adjustt)]))+
+theme(legend.position="top")+
+geom_text(data = nc3_coords, aes(X, Y, label = NAME), colour = "black",fontface = "bold", size=2)+
+facet_grid(cols=vars(tempo))+
+theme(axis.title.y=element_text(colour="black",size=12),
+ axis.title.x=element_text(colour="black",size=12),
+ axis.text=element_text(colour="black",size=9.5),
+ panel.border=element_blank(),
+ axis.line=element_line(colour="black"))+
+theme(strip.text = element_text(face="bold", size=9,lineheight=5.0),
+strip.background = element_rect(fill="white", colour="black",
+size=1))+
+no_axis
+
+
+})
+```
+
